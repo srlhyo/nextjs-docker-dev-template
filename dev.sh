@@ -35,6 +35,11 @@ $DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE ps
 
 rebuild() {
 
+echo "Cleaning build artifacts..."
+
+rm -rf node_modules
+rm -rf .next
+
 echo "Fixing docker data permissions..."
 chmod -R 777 .docker/data 2>/dev/null || true
 

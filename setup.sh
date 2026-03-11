@@ -190,7 +190,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -214,6 +214,7 @@ services:
       dockerfile: .docker/dev/Dockerfile
     volumes:
       - ../../:/app
+      - /app/node_modules
     ports:
       - "\${APP_PORT}:3000"
     depends_on:
@@ -246,7 +247,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - ../../.docker/data/redis:/data
 
@@ -285,7 +286,7 @@ PGADMIN_EMAIL=admin@localhost.com
 PGADMIN_PASSWORD=$PGADMIN_PASSWORD
 PGADMIN_PORT=$PGADMIN_PORT
 
-REDIS_PORT=6379
+REDIS_PORT=$REDIS_PORT
 REDIS_COMMANDER_PORT=$REDIS_COMMANDER_PORT
 EOF
 
