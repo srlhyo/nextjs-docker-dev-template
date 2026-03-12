@@ -1,22 +1,27 @@
-# README.md (Template Repository)
-
-
-
-````markdown
 # Next.js Docker Development Template
 
 Create a **complete web development environment in minutes**.
 
 This template automatically creates a project with:
 
-- **Next.js** (web framework)
-- **PostgreSQL** (database)
-- **Redis** (cache)
-- **pgAdmin** (database management UI)
-- **Redis Commander** (Redis UI)
-- **Docker** containers for isolated development
+* Next.js (web framework)
+* PostgreSQL (database)
+* Redis (cache)
+* pgAdmin (database management UI)
+* Redis Commander (Redis UI)
+* Docker containers for isolated development
 
 Everything runs inside Docker so it **does not affect your system**.
+
+---
+
+# Works On
+
+This template has been tested on:
+
+* macOS
+* Linux
+* Windows (WSL)
 
 ---
 
@@ -24,23 +29,23 @@ Everything runs inside Docker so it **does not affect your system**.
 
 Install these first.
 
-## Docker
+## 1. Docker
 
 Download and install:
 
-https://www.docker.com/products/docker-desktop/
+[https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
 
 Verify installation:
 
 ```bash
 docker --version
-````
+```
 
 Docker must be **running** before starting the environment.
 
 ---
 
-## Node.js
+## 2. Node.js
 
 Download:
 
@@ -52,11 +57,13 @@ Verify installation:
 node --version
 ```
 
+Node.js LTS is recommended.
+
 ---
 
-# Step 1 — Create a New Project
+# Step 1 — Create a Project From This Template
 
-Clone this repository:
+Clone the template repository:
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/dev-env-template my-project
@@ -68,7 +75,7 @@ Enter the project folder:
 cd my-project
 ```
 
-Make scripts executable:
+Make the scripts executable:
 
 ```bash
 chmod +x setup.sh dev.sh
@@ -109,25 +116,23 @@ Start the environment:
 
 # Step 3 — Open the Applications
 
-Once running, open these in your browser.
+Ports may change automatically if your system already uses the default ones.
 
-### Web Application
+Run this command to see the correct URLs:
 
-```
-http://localhost:3000
-```
-
-### Database Interface (pgAdmin)
-
-```
-http://localhost:5050
+```bash
+./dev.sh ports
 ```
 
-### Redis Interface
+Example output:
 
 ```
-http://localhost:8081
+Next.js → http://localhost:3000
+pgAdmin → http://localhost:5050
+Redis Commander → http://localhost:8081
 ```
+
+Open the URLs shown in your browser.
 
 ---
 
@@ -223,131 +228,3 @@ Your generated project will include:
 # License
 
 MIT License
-
-````
-
----
-
-# README.project.md (Generated Project)
-
-```markdown
-# Project Name
-
-This project was created using the **Next.js Docker Development Template**.
-
-It includes a fully configured development environment with:
-
-- Next.js
-- Docker
-- PostgreSQL
-- Redis
-- pgAdmin
-- Redis Commander
-
----
-
-# Development
-
-Start the development environment:
-
-```bash
-./dev.sh start
-````
-
----
-
-# Rebuild Containers
-
-If dependencies change or containers fail:
-
-```bash
-./dev.sh rebuild
-```
-
----
-
-# Stop the Environment
-
-```bash
-./dev.sh stop
-```
-
----
-
-# View Logs
-
-```bash
-./dev.sh logs
-```
-
----
-
-# Services
-
-### Web Application
-
-```
-http://localhost:3000
-```
-
-### pgAdmin
-
-Database management interface.
-
-```
-http://localhost:5050
-```
-
-### Redis Commander
-
-Redis management interface.
-
-```
-http://localhost:8081
-```
-
----
-
-# Environment Variables
-
-Environment configuration is stored in:
-
-```
-.env
-```
-
----
-
-# Reset the Environment
-
-If containers break or databases need resetting:
-
-```bash
-./dev.sh reset
-```
-
-Then rebuild:
-
-```bash
-./dev.sh rebuild
-```
-
----
-
-# Project Stack
-
-* Next.js
-* Docker
-* PostgreSQL
-* Redis
-
----
-
-# Notes
-
-* All services run inside Docker.
-* No global database installations are required.
-* The development environment is isolated from your system.
-
-```
-```

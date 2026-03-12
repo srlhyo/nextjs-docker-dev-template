@@ -20,6 +20,15 @@ fi
 
 }
 
+print_system_info() {
+
+echo "Environment"
+echo "Docker: $(docker --version)"
+echo "Node: $(node --version)"
+echo
+
+}
+
 detect_docker_compose() {
 
 if command -v docker-compose &> /dev/null; then
@@ -47,6 +56,40 @@ check_docker_running() {
 if ! docker info &> /dev/null; then
 echo -e "${RED}Docker is not running.${NC}"
 echo "Please start Docker and try again."
+exit 1
+fi
+
+}
+
+check_node_installed() {
+
+if ! command -v node &> /dev/null; then
+echo -e "${RED}Node.js is not installed.${NC}"
+echo
+echo "Install Node.js:"
+echo "https://nodejs.org"
+exit 1
+fi
+
+}
+
+check_npx_installed() {
+
+if ! command -v npx &> /dev/null; then
+echo -e "${RED}npx is not available.${NC}"
+echo
+echo "Please install Node.js LTS which includes npx."
+exit 1
+fi
+
+}
+
+check_openssl_installed() {
+
+if ! command -v openssl &> /dev/null; then
+echo -e "${RED}openssl is not installed.${NC}"
+echo
+echo "Install openssl and try again."
 exit 1
 fi
 
@@ -82,6 +125,36 @@ echo "$PROJECT_NAME" > .project
 echo
 echo "Project name: $PROJECT_NAME"
 echo
+
+}
+
+ask_services() {
+
+echo
+echo "Select optional services:"
+echo
+
+read -p "Include PostgreSQL? (Y/n): " USE_POSTGRES
+read -p "Include Redis? (Y/n): " USE_REDIS
+read -p "Include pgAdmin? (Y/n): " USE_PGADMIN
+read -p "Include Redis Commander? (Y/n): " USE_REDIS_COMMANDER
+
+USE_POSTGRES=${USE_POSTGRES:-Y}
+USE_REDIS=${USE_REDIS:-Y}
+USE_PGADMIN=${USE_PGADMIN:-Y}
+USE_REDIS_COMMANDER=${USE_REDIS_COMMANDER:-Y}
+
+# pgAdmin requires PostgreSQL
+if [[ ! "$USE_POSTGRES" =~ ^[Yy]$ && "$USE_PGADMIN" =~ ^[Yy]$ ]]; then
+echo "pgAdmin requires PostgreSQL. Disabling pgAdmin."
+USE_PGADMIN="n"
+fi
+
+# Redis Commander requires Redis
+if [[ ! "$USE_REDIS" =~ ^[Yy]$ ]]; then
+echo "Redis Commander requires Redis. Disabling Redis Commander."
+USE_REDIS_COMMANDER="n"
+fi
 
 }
 
@@ -135,6 +208,11 @@ shopt -u dotglob
 rm -rf temp-next-app
 rm -rf .git
 
+# remove host artifacts
+rm -rf node_modules
+rm -rf .next
+rm -f package-lock.json
+
 echo -e "${GREEN}✓ Next.js project created${NC}"
 
 }
@@ -172,6 +250,7 @@ node_modules
 .next
 .git
 .gitignore
+.env
 .docker/data
 Dockerfile
 docker-compose.yml
@@ -190,7 +269,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -205,6 +284,18 @@ create_docker_compose() {
 
 echo -e "${YELLOW}▶ Creating docker-compose.yml...${NC}"
 
+DEPENDS=""
+
+if [[ "$USE_POSTGRES" =~ ^[Yy]$ ]]; then
+DEPENDS="$DEPENDS
+      - postgres"
+fi
+
+if [[ "$USE_REDIS" =~ ^[Yy]$ ]]; then
+DEPENDS="$DEPENDS
+      - redis"
+fi
+
 cat <<EOF > .docker/dev/docker-compose.yml
 services:
 
@@ -214,12 +305,19 @@ services:
       dockerfile: .docker/dev/Dockerfile
     volumes:
       - ../../:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
     ports:
       - "\${APP_PORT}:3000"
-    depends_on:
-      - postgres
-      - redis
+EOF
+
+if [ -n "$DEPENDS" ]; then
+cat <<EOF >> .docker/dev/docker-compose.yml
+    depends_on:$DEPENDS
+EOF
+fi
+
+if [[ "$USE_POSTGRES" =~ ^[Yy]$ ]]; then
+cat <<EOF >> .docker/dev/docker-compose.yml
 
   postgres:
     image: postgres:15
@@ -233,6 +331,12 @@ services:
     ports:
       - "\${POSTGRES_PORT}:5432"
 
+EOF
+fi
+
+if [[ "$USE_PGADMIN" =~ ^[Yy]$ ]]; then
+cat <<EOF >> .docker/dev/docker-compose.yml
+
   pgadmin:
     image: dpage/pgadmin4
     restart: always
@@ -244,12 +348,24 @@ services:
     volumes:
       - ../../.docker/data/pgadmin:/var/lib/pgadmin
 
+EOF
+fi
+
+if [[ "$USE_REDIS" =~ ^[Yy]$ ]]; then
+cat <<EOF >> .docker/dev/docker-compose.yml
+
   redis:
     image: redis:7
     ports:
-      - "${REDIS_PORT}:6379"
+      - "\${REDIS_PORT}:6379"
     volumes:
       - ../../.docker/data/redis:/data
+
+EOF
+fi
+
+if [[ "$USE_REDIS_COMMANDER" =~ ^[Yy]$ ]]; then
+cat <<EOF >> .docker/dev/docker-compose.yml
 
   redis-commander:
     image: rediscommander/redis-commander
@@ -257,6 +373,14 @@ services:
       - redis
     ports:
       - "\${REDIS_COMMANDER_PORT}:8081"
+
+EOF
+fi
+
+cat <<EOF >> .docker/dev/docker-compose.yml
+
+volumes:
+  node_modules:
 
 EOF
 
@@ -267,9 +391,15 @@ create_env() {
 echo -e "${YELLOW}▶ Creating .env file...${NC}"
 
 APP_PORT=$(find_available_port 3000)
+if [[ "$USE_POSTGRES" =~ ^[Yy]$ ]]; then
 POSTGRES_PORT=$(find_available_port 5432)
 PGADMIN_PORT=$(find_available_port 5050)
+fi
+
+if [[ "$USE_REDIS" =~ ^[Yy]$ ]]; then
+REDIS_PORT=$(find_available_port 6379)
 REDIS_COMMANDER_PORT=$(find_available_port 8081)
+fi
 
 POSTGRES_PASSWORD=$(openssl rand -hex 12)
 PGADMIN_PASSWORD=$(openssl rand -hex 12)
@@ -325,22 +455,34 @@ echo "./dev.sh start"
 echo
 echo "Application:"
 echo "http://localhost:$APP_PORT"
+
+if [[ "$USE_PGADMIN" =~ ^[Yy]$ ]]; then
 echo
 echo "pgAdmin:"
 echo "http://localhost:$PGADMIN_PORT"
+fi
+
+if [[ "$USE_REDIS_COMMANDER" =~ ^[Yy]$ ]]; then
 echo
 echo "Redis Commander:"
 echo "http://localhost:$REDIS_COMMANDER_PORT"
+fi
+
 echo
 
 }
 
 print_banner
+print_system_info
 detect_docker_compose
 check_docker_installed
 check_docker_running
+check_node_installed
+check_npx_installed
+check_openssl_installed
 ensure_empty_project
 ask_project_name
+ask_services
 create_nextjs_project
 fix_docker_permissions
 create_structure
