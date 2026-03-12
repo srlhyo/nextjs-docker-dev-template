@@ -1,21 +1,21 @@
 # Next.js Docker Development Template
 
-Create a **complete web development environment in minutes** using Docker.
+Create a **complete web development environment in minutes**.
 
-This template automatically creates a project with:
+This template automatically generates a project with:
 
-* **Next.js** (web framework)
-* **PostgreSQL** (database)
-* **Redis** (cache)
-* **pgAdmin** (database UI)
-* **Redis Commander** (Redis UI)
-* **Docker** containers for isolated development
+* Next.js
+* Docker development environment
+* PostgreSQL (optional)
+* Redis (optional)
+* pgAdmin (optional)
+* Redis Commander (optional)
 
 Everything runs inside Docker so it **does not affect your system**.
 
 ---
 
-# Step 1 — Create Your Project From This Template
+# Step 1 — Create a Project From This Template
 
 On the GitHub page of this repository click:
 
@@ -25,19 +25,17 @@ Use this template
 
 Then:
 
-1. Choose a **repository name** (this will be your project name)
+1. Choose a **repository name** (this becomes your project name)
 2. Choose **public or private**
 3. Click **Create repository**
 
-GitHub will create a **new repository based on this template**.
+GitHub will generate a new repository based on this template.
 
 ---
 
-# Step 2 — Clone Your New Project
+# Step 2 — Clone Your Project
 
-Clone the repository you just created.
-
-Example:
+Clone the repository you just created:
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/YOUR-PROJECT
@@ -52,11 +50,11 @@ chmod +x setup.sh dev.sh
 
 ---
 
-# Step 3 — Verify System Requirements
+# Step 3 — Verify Requirements
 
-Before running the setup, verify that required tools are installed.
+Before running the setup script, verify that required tools are installed.
 
-### Docker
+## Docker
 
 Check Docker:
 
@@ -68,13 +66,13 @@ If Docker is not installed:
 
 [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
 
-Docker must be **running** before starting the environment.
+Docker must be **running** before continuing.
 
 ---
 
-### Node.js
+## Node.js
 
-Check Node:
+Check Node.js:
 
 ```bash
 node --version
@@ -94,53 +92,30 @@ Run the setup script:
 ./setup.sh
 ```
 
-This will automatically:
+This script will automatically:
 
 * create a Next.js project
 * configure Docker
-* configure PostgreSQL
-* configure Redis
+* configure optional services
 * generate environment variables
 * prepare the development environment
 
 ---
 
-# Step 5 — Start the Development Environment
+# Step 5 — Start Development
 
-Build the containers:
+Build and start the development environment:
 
 ```bash
 ./dev.sh rebuild
 ```
 
-Start the environment:
+This command builds the containers and starts all services.
+
+To see the service URLs:
 
 ```bash
-./dev.sh start
-```
-
----
-
-# Step 6 — Open the Applications
-
-Once running, open these in your browser.
-
-### Web Application
-
-```
-http://localhost:3000
-```
-
-### Database Interface (pgAdmin)
-
-```
-http://localhost:5050
-```
-
-### Redis Interface
-
-```
-http://localhost:8081
+./dev.sh ports
 ```
 
 ---
@@ -185,34 +160,16 @@ Reset the environment
 
 ---
 
-# Troubleshooting
-
-If something breaks:
-
-```bash
-./dev.sh reset
-./dev.sh rebuild
-```
-
-You can also check your system setup:
-
-```bash
-./dev.sh doctor
-```
-
----
-
 # What This Template Creates
 
 Your generated project will include:
 
 * Next.js application
 * Docker development environment
-* PostgreSQL database
-* Redis cache
-* pgAdmin interface
-* Redis Commander interface
-* automated environment configuration
+* PostgreSQL database (optional)
+* Redis cache (optional)
+* pgAdmin interface (optional)
+* Redis Commander interface (optional)
 
 ---
 

@@ -429,7 +429,10 @@ echo
 echo "Start development:"
 echo
 echo "./dev.sh rebuild"
-echo "./dev.sh start"
+echo
+echo "Check running services:"
+echo
+echo "./dev.sh ports"
 echo
 echo "Application:"
 echo "http://localhost:$APP_PORT"
