@@ -1,163 +1,140 @@
 #!/usr/bin/env bash
-
-set -e
+set -Eeuo pipefail
 
 ENV_FILE=".env"
 COMPOSE_FILE=".docker/dev/docker-compose.yml"
 
-# Detect docker compose command
-if command -v docker-compose &> /dev/null; then
-DOCKER_COMPOSE="docker-compose"
+if command -v docker-compose >/dev/null 2>&1; then
+  DOCKER_COMPOSE="docker-compose"
 else
-DOCKER_COMPOSE="docker compose"
+  DOCKER_COMPOSE="docker compose"
 fi
 
-# Validate environment
+dc() {
+$DOCKER_COMPOSE --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+require_env() {
 if [ ! -f "$ENV_FILE" ]; then
-echo "Environment not initialized."
-echo "Run ./setup.sh first."
-exit 1
+  echo "Missing .env file"
+  exit 1
 fi
-
-if [ ! -f "$COMPOSE_FILE" ]; then
-echo "docker-compose file missing."
-echo "Run ./setup.sh again."
-exit 1
-fi
-
-# ------------------------
-# Commands
-# ------------------------
+}
 
 start() {
 echo "Starting containers..."
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE up -d
+dc up -d
 }
 
 stop() {
 echo "Stopping containers..."
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE down
+dc down
 }
 
 logs() {
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE logs -f
-}
-
-ps() {
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE ps
+dc logs -f
 }
 
 status() {
-echo
-echo "Container status"
-echo
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE ps
-echo
+dc ps
+}
+
+wait_postgres() {
+
+if ! dc ps | grep -q postgres; then
+  return
+fi
+
+echo "Waiting for PostgreSQL..."
+
+until dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
+  sleep 2
+done
+
+echo "PostgreSQL ready"
 }
 
 rebuild() {
 
-echo "Cleaning build artifacts..."
+echo "Rebuilding environment..."
 
-rm -rf node_modules
-rm -rf .next
+dc down
+dc build --no-cache
+dc up -d
 
-echo "Fixing docker data permissions..."
-chmod -R 777 .docker/data 2>/dev/null || true
+wait_postgres
 
-echo "Rebuilding containers..."
+echo "Running Prisma setup..."
 
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE down
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE build --no-cache
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE up -d --force-recreate
+dc exec -T app npx prisma generate || true
+dc exec -T app npx prisma migrate deploy || true
 
+echo
+echo "Environment ready"
+echo
 }
 
 ports() {
 
+set -a
 source .env
+set +a
 
 echo
 echo "Services"
 echo
-echo "Next.js → http://localhost:$APP_PORT"
 
-if grep -q "pgadmin:" "$COMPOSE_FILE"; then
+echo "Next.js → http://localhost:$APP_PORT"
+echo "Prisma Studio → http://localhost:$PRISMA_STUDIO_PORT"
+
+if grep -q pgadmin "$COMPOSE_FILE"; then
 echo "pgAdmin → http://localhost:$PGADMIN_PORT"
 fi
 
-if grep -q "redis-commander:" "$COMPOSE_FILE"; then
+if grep -q redis-commander "$COMPOSE_FILE"; then
 echo "Redis Commander → http://localhost:$REDIS_COMMANDER_PORT"
 fi
 
 echo
-
 }
 
 doctor() {
 
 echo
-echo "Running environment diagnostics..."
+echo "Environment diagnostics"
 echo
 
-if ! command -v docker &> /dev/null; then
-echo "❌ Docker not installed"
-exit 1
+for cmd in docker; do
+if command -v $cmd >/dev/null; then
+echo "✔ $cmd installed"
 else
-echo "✅ Docker installed"
+echo "✖ $cmd missing"
+exit 1
+fi
+done
+
+if docker info >/dev/null 2>&1; then
+echo "✔ Docker running"
+else
+echo "✖ Docker not running"
+exit 1
 fi
 
-if ! docker info &> /dev/null; then
-echo "❌ Docker not running"
-exit 1
+if docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1; then
+echo "✔ Docker Compose available"
 else
-echo "✅ Docker running"
-fi
-
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-echo "❌ Docker Compose not available"
+echo "✖ Docker Compose missing"
 exit 1
-else
-echo "✅ Docker Compose available"
-fi
-
-if ! command -v node &> /dev/null; then
-echo "❌ Node not installed"
-exit 1
-else
-echo "✅ Node installed"
-fi
-
-if [ ! -f ".env" ]; then
-echo "❌ .env missing"
-exit 1
-else
-echo "✅ Environment file exists"
-fi
-
-if [ ! -f "$COMPOSE_FILE" ]; then
-echo "❌ docker-compose.yml missing"
-exit 1
-else
-echo "✅ docker-compose.yml exists"
 fi
 
 echo
-echo "Environment looks good."
-echo
-
-}
-
-version() {
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE exec app node -v
 }
 
 reset() {
 
-echo "Resetting development environment..."
+echo "Resetting docker environment..."
 
-$DOCKER_COMPOSE --env-file $ENV_FILE -f $COMPOSE_FILE down -v
-
+dc down -v
 rm -rf .docker/data
 
 mkdir -p .docker/data/postgres
@@ -166,43 +143,72 @@ mkdir -p .docker/data/pgadmin
 
 chmod -R 777 .docker/data
 
-echo "Environment reset complete."
-
+echo "Reset complete"
 }
 
-help() {
-
-echo
-echo "Available commands"
-echo
-echo "start      start containers"
-echo "stop       stop containers"
-echo "logs       show logs"
-echo "ps         show containers"
-echo "status     show container status"
-echo "rebuild    rebuild containers"
-echo "ports      show service ports"
-echo "doctor     check environment health"
-echo "version    show node version"
-echo "reset      reset docker environment"
-echo
-
+npm_install() {
+dc exec app npm install
 }
 
-# ------------------------
-# Command dispatcher
-# ------------------------
+prisma_generate() {
+dc exec app npx prisma generate
+}
 
-case "$1" in
+prisma_migrate() {
+dc exec app npx prisma migrate dev
+}
+
+prisma_push() {
+dc exec app npx prisma db push
+}
+
+prisma_reset() {
+dc exec app npx prisma migrate reset --force
+}
+
+studio() {
+dc up -d prisma-studio
+}
+
+case "${1:-}" in
+
 start) start ;;
 stop) stop ;;
 logs) logs ;;
-ps) ps ;;
 status) status ;;
 rebuild) rebuild ;;
 ports) ports ;;
 doctor) doctor ;;
-version) version ;;
 reset) reset ;;
-*) help ;;
+install) npm_install ;;
+generate) prisma_generate ;;
+migrate) prisma_migrate ;;
+push) prisma_push ;;
+db-reset) prisma_reset ;;
+studio) studio ;;
+
+*)
+
+echo
+echo "Commands:"
+echo
+echo "start      Start containers"
+echo "stop       Stop containers"
+echo "logs       Show logs"
+echo "status     Container status"
+echo "rebuild    Rebuild environment"
+echo "ports      Show service ports"
+echo "doctor     Environment diagnostics"
+echo "reset      Reset docker data"
+echo
+echo "Prisma:"
+echo "generate   Generate client"
+echo "migrate    Run migrations"
+echo "push       Push schema"
+echo "db-reset   Reset database"
+echo "studio     Start Prisma Studio"
+echo
+
+;;
+
 esac
