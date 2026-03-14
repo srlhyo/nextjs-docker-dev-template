@@ -15,9 +15,7 @@ This repository is a **GitHub template (blueprint)** used to generate new projec
 
 # Demo
 
-> Add a short demo GIF at `docs/demo.gif` showing: running `setup.sh`, `./dev.sh rebuild`, then opening the browser.
-
-<!-- ![Demo 1](docs/demo1.gif) ![Demo 2](docs/demo2.gif) ![Demo 3](docs/demo3.gif)![Demo 4](docs/demo4.gif)![Demo 5](docs/demo5.gif)![Demo 6](docs/demo6.gif)![Demo 7](docs/demo7.gif)![Demo 8](docs/demo8.gif) -->
+> A Quickstart demo GIF.
 
 | Demo 1 | Demo 2 | Demo 3 |
 | :---: | :---: | :---: |
