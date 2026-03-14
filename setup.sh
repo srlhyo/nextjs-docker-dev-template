@@ -26,6 +26,11 @@ detect_docker_compose() {
 }
 
 check_dependencies() {
+  echo "Checking environment..."
+  echo "• docker"
+  echo "• node"
+  echo "• npx"
+  echo "• openssl"
 
   for cmd in docker node npx openssl; do
     if ! command -v $cmd >/dev/null 2>&1; then
@@ -74,9 +79,11 @@ ask_services() {
 
 find_port() {
   local port=$1
-  while ss -tuln | grep -q ":$port "; do
+
+  while lsof -i :"$port" >/dev/null 2>&1; do
     port=$((port+1))
   done
+
   echo "$port"
 }
 
@@ -86,6 +93,8 @@ create_nextjs_project() {
 
   docker run --rm \
     -u "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
+    -e NPM_CONFIG_CACHE=/tmp/.npm \
     -v "$PWD":/app -w /app node:22 \
     bash -c "
       mkdir temp-app &&
@@ -115,6 +124,8 @@ install_prisma() {
 
   docker run --rm \
     -u "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
+    -e NPM_CONFIG_CACHE=/tmp/.npm \
     -v "$PWD":/app -w /app node:22 \
     bash -c "
       npm install prisma dotenv --save-dev &&
