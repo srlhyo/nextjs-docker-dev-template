@@ -11,166 +11,218 @@ else
 fi
 
 dc() {
-$DOCKER_COMPOSE --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  $DOCKER_COMPOSE --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
+
+# -----------------------------
+# Bootstrap (CRITICAL FIX)
+# -----------------------------
 
 ensure_env() {
-
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Creating .env from .env.example"
-  cp .env.example .env
-fi
-
+  if [ ! -f "$ENV_FILE" ]; then
+    echo "Creating .env from .env.example"
+    cp .env.example .env
+  fi
 }
 
+ensure_data_dirs() {
+  mkdir -p .docker/data/postgres
+  mkdir -p .docker/data/redis
+  mkdir -p .docker/data/pgadmin
+  chmod -R 777 .docker/data
+}
+
+bootstrap() {
+  ensure_env
+  ensure_data_dirs
+}
+
+# -----------------------------
+# Core commands
+# -----------------------------
+
 start() {
-echo "Starting containers..."
-dc up -d
+  bootstrap
+  echo "Starting containers..."
+  dc up -d
 }
 
 stop() {
-echo "Stopping containers..."
-dc down
+  echo "Stopping containers..."
+  dc down
 }
 
 logs() {
-dc logs -f
+  dc logs -f
 }
 
 status() {
-dc ps
+  dc ps
 }
+
+# -----------------------------
+# Services
+# -----------------------------
 
 wait_postgres() {
 
-if ! dc ps | grep -q postgres; then
-  return
-fi
+  if ! dc ps | grep -q postgres; then
+    return
+  fi
 
-echo "Waiting for PostgreSQL..."
+  echo "Waiting for PostgreSQL..."
 
-until dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
-  sleep 2
-done
+  until dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
+    sleep 2
+  done
 
-echo "PostgreSQL ready"
+  echo "PostgreSQL ready"
 }
+
+# -----------------------------
+# Rebuild (MAIN ENTRYPOINT)
+# -----------------------------
 
 rebuild() {
 
-echo "Rebuilding environment..."
+  bootstrap
 
-dc down
-dc build --no-cache
-dc up -d
+  echo "Rebuilding environment..."
 
-wait_postgres
+  dc down -v || true
+  dc build --no-cache
+  dc up -d
 
-echo "Running Prisma setup..."
+  wait_postgres
 
-dc exec -T app npx prisma generate || true
-dc exec -T app npx prisma migrate deploy || true
+  echo "Installing dependencies..."
+  dc exec -T app npm install --no-audit --no-fund || true
 
-echo
-echo "Environment ready"
-echo
+  echo "Running Prisma setup..."
+  dc exec -T app npx prisma generate || true
+  dc exec -T app npx prisma migrate deploy || true
+
+  echo
+  echo "Environment ready"
+  echo
 }
+
+# -----------------------------
+# Info
+# -----------------------------
 
 ports() {
 
-set -a
-source .env
-set +a
+  set -a
+  source .env
+  set +a
 
-echo
-echo "Services"
-echo
+  echo
+  echo "Services"
+  echo
 
-echo "Next.js → http://localhost:$APP_PORT"
-echo "Prisma Studio → http://localhost:$PRISMA_STUDIO_PORT"
+  echo "Next.js → http://localhost:$APP_PORT"
+  echo "Prisma Studio → http://localhost:$PRISMA_STUDIO_PORT"
 
-if grep -q pgadmin "$COMPOSE_FILE"; then
-echo "pgAdmin → http://localhost:$PGADMIN_PORT"
-fi
+  if grep -q pgadmin "$COMPOSE_FILE"; then
+    echo "pgAdmin → http://localhost:$PGADMIN_PORT"
+  fi
 
-if grep -q redis-commander "$COMPOSE_FILE"; then
-echo "Redis Commander → http://localhost:$REDIS_COMMANDER_PORT"
-fi
+  if grep -q redis-commander "$COMPOSE_FILE"; then
+    echo "Redis Commander → http://localhost:$REDIS_COMMANDER_PORT"
+  fi
 
-echo
+  echo
 }
+
+# -----------------------------
+# Diagnostics
+# -----------------------------
 
 doctor() {
 
-echo
-echo "Environment diagnostics"
-echo
+  echo
+  echo "Environment diagnostics"
+  echo
 
-for cmd in docker; do
-if command -v $cmd >/dev/null; then
-echo "✔ $cmd installed"
-else
-echo "✖ $cmd missing"
-exit 1
-fi
-done
+  for cmd in docker; do
+    if command -v $cmd >/dev/null; then
+      echo "✔ $cmd installed"
+    else
+      echo "✖ $cmd missing"
+      exit 1
+    fi
+  done
 
-if docker info >/dev/null 2>&1; then
-echo "✔ Docker running"
-else
-echo "✖ Docker not running"
-exit 1
-fi
+  if docker info >/dev/null 2>&1; then
+    echo "✔ Docker running"
+  else
+    echo "✖ Docker not running"
+    exit 1
+  fi
 
-if docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1; then
-echo "✔ Docker Compose available"
-else
-echo "✖ Docker Compose missing"
-exit 1
-fi
+  if docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1; then
+    echo "✔ Docker Compose available"
+  else
+    echo "✖ Docker Compose missing"
+    exit 1
+  fi
 
-echo
+  echo
 }
+
+# -----------------------------
+# Reset
+# -----------------------------
 
 reset() {
 
-echo "Resetting docker environment..."
+  echo "Resetting docker environment..."
 
-dc down -v
-rm -rf .docker/data
+  dc down -v || true
+  rm -rf .docker/data
 
-mkdir -p .docker/data/postgres
-mkdir -p .docker/data/redis
-mkdir -p .docker/data/pgadmin
+  ensure_data_dirs
 
-chmod -R 777 .docker/data
-
-echo "Reset complete"
+  echo "Reset complete"
 }
 
+# -----------------------------
+# Shortcuts (Sail-like DX)
+# -----------------------------
+
 npm_install() {
-dc exec app npm install
+  dc exec app npm install
+}
+
+shell() {
+  dc exec app sh
 }
 
 prisma_generate() {
-dc exec app npx prisma generate
+  dc exec app npx prisma generate
 }
 
 prisma_migrate() {
-dc exec app npx prisma migrate dev
+  dc exec app npx prisma migrate dev
 }
 
 prisma_push() {
-dc exec app npx prisma db push
+  dc exec app npx prisma db push
 }
 
 prisma_reset() {
-dc exec app npx prisma migrate reset --force
+  dc exec app npx prisma migrate reset --force
 }
 
 studio() {
-dc up -d prisma-studio
+  bootstrap
+  dc up -d prisma-studio
 }
+
+# -----------------------------
+# CLI
+# -----------------------------
 
 case "${1:-}" in
 
@@ -183,6 +235,7 @@ ports) ports ;;
 doctor) doctor ;;
 reset) reset ;;
 install) npm_install ;;
+shell) shell ;;
 generate) prisma_generate ;;
 migrate) prisma_migrate ;;
 push) prisma_push ;;
@@ -202,6 +255,10 @@ echo "rebuild    Rebuild environment"
 echo "ports      Show service ports"
 echo "doctor     Environment diagnostics"
 echo "reset      Reset docker data"
+echo
+echo "Dev:"
+echo "install    npm install"
+echo "shell      open container shell"
 echo
 echo "Prisma:"
 echo "generate   Generate client"
