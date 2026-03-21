@@ -157,8 +157,7 @@ check_port() {
   if lsof -i :"$port" >/dev/null 2>&1; then
     echo
     echo "Port $port ($name) is already in use."
-    echo "Try: Port $(($port + 1))"
-    echo "Fix: edit .env and change ${name}_PORT"
+    echo "Fix: edit .env and change ${name}_PORT => try port $(($port + 1))"
     echo
     exit 1
   fi
