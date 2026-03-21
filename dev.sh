@@ -87,6 +87,17 @@ rebuild() {
 
   bootstrap
 
+  # Load env
+  set -a
+  source .env
+  set +a
+
+  check_port "$APP_PORT" "APP"
+  check_port "$POSTGRES_PORT" "POSTGRES"
+  check_port "$REDIS_PORT" "REDIS"
+  check_port "$PGADMIN_PORT" "PGADMIN"
+  check_port "$REDIS_COMMANDER_PORT" "REDIS_COMMANDER"
+
   echo "Rebuilding environment..."
 
   dc down -v || true
@@ -138,6 +149,20 @@ ports() {
 # -----------------------------
 # Diagnostics
 # -----------------------------
+
+check_port() {
+  local port=$1
+  local name=$2
+
+  if lsof -i :"$port" >/dev/null 2>&1; then
+    echo
+    echo "Port $port ($name) is already in use."
+    echo "Try: Port $(($port + 1))"
+    echo "Fix: edit .env and change ${name}_PORT"
+    echo
+    exit 1
+  fi
+}
 
 doctor() {
 
