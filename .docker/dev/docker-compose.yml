@@ -1,0 +1,65 @@
+services:
+
+  app:
+    build:
+      context: ../../
+      dockerfile: .docker/dev/Dockerfile
+    working_dir: /app
+    volumes:
+      - ../../:/app
+      - node_modules:/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    ports:
+      - "${APP_PORT}:3000"
+
+  postgres:
+    image: postgres:15
+    restart: always
+    volumes:
+      - ../../.docker/data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - ../../.docker/data/redis:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+    ports:
+      - "${REDIS_COMMANDER_PORT}:8081"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "${PGADMIN_PORT}:80"
+    volumes:
+      - ../../.docker/data/pgadmin:/var/lib/pgadmin
+
+  prisma-studio:
+    build:
+      context: ../../
+      dockerfile: .docker/dev/Dockerfile
+    volumes:
+      - ../../:/app
+      - node_modules:/app/node_modules
+    command: sh -c "npx prisma generate && BROWSER=none npx prisma studio --port 5555"
+    ports:
+      - "${PRISMA_STUDIO_PORT}:5555"
+
+volumes:
+  node_modules:
