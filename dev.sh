@@ -223,6 +223,18 @@ shell() {
   dc exec app sh
 }
 
+prisma_init() {
+  echo "Installing Prisma..."
+
+  dc exec app npm install prisma --save-dev
+  dc exec app npm install @prisma/client
+
+  echo "Initializing Prisma with PostgreSQL..."
+  dc exec app npx prisma init --datasource-provider postgresql
+
+  echo "Prisma initialized"
+}
+
 prisma_generate() {
   dc exec app npx prisma generate
 }
@@ -241,6 +253,12 @@ prisma_reset() {
 
 studio() {
   bootstrap
+
+  if [ ! -f "prisma/schema.prisma" ]; then
+    echo "Prisma not initialized. Run: ./dev.sh init-prisma"
+    exit 1
+  fi
+
   dc up -d prisma-studio
 }
 
@@ -260,6 +278,7 @@ doctor) doctor ;;
 reset) reset ;;
 install) npm_install ;;
 shell) shell ;;
+prisma-init) prisma_init ;;
 generate) prisma_generate ;;
 migrate) prisma_migrate ;;
 push) prisma_push ;;
